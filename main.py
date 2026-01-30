@@ -54,10 +54,10 @@ class App(ctk.CTk):
         self.entry_role = ctk.CTkEntry(self.form_frame, placeholder_text="Role")
         self.entry_role.pack(pady=10, padx=20, fill="x")
 
-        # Gender
-        self.combo_gender = ctk.CTkComboBox(self.form_frame, values=["Male", "Female", "Other"])
-        self.combo_gender.set("Gender")
-        self.combo_gender.pack(pady=10, padx=20, fill="x")
+        # Company
+        self.combo_company = ctk.CTkComboBox(self.form_frame, values=["Air Force One", "Custom Air", "Troy Filters", "CMS Water Solutions"])
+        self.combo_company.set("Company")
+        self.combo_company.pack(pady=10, padx=20, fill="x")
 
         # Status
         self.combo_status = ctk.CTkComboBox(self.form_frame, values=["Active", "Inactive"])
@@ -91,21 +91,21 @@ class App(ctk.CTk):
         style.map("Treeview.Heading",
                   background=[('active', '#3484F0')])
         
-        columns = ("id", "fname", "lname", "role", "gender", "status")
+        columns = ("id", "fname", "lname", "role", "company", "status")
         self.tree = ttk.Treeview(self.table_frame, columns=columns, show="headings")
         
         self.tree.heading("id", text="ID")
         self.tree.heading("fname", text="First Name")
         self.tree.heading("lname", text="Last Name")
         self.tree.heading("role", text="Role")
-        self.tree.heading("gender", text="Gender")
+        self.tree.heading("company", text="Company")
         self.tree.heading("status", text="Status")
 
         self.tree.column("id", width=50)
         self.tree.column("fname", width=100)
         self.tree.column("lname", width=100)
         self.tree.column("role", width=150)
-        self.tree.column("gender", width=100)
+        self.tree.column("company", width=100)
         self.tree.column("status", width=100)
 
         self.tree.pack(fill="both", expand=True, padx=10, pady=10)
@@ -115,14 +115,14 @@ class App(ctk.CTk):
         fname = self.entry_fname.get()
         lname = self.entry_lname.get()
         role = self.entry_role.get()
-        gender = self.combo_gender.get()
+        company = self.combo_company.get()
         status = self.combo_status.get()
 
-        if not (emp_id and fname and lname and role and gender != "Gender" and status != "Status"):
+        if not (emp_id and fname and lname and role and company != "Company" and status != "Status"):
             messagebox.showerror("Error", "All fields are required!")
             return
 
-        if self.db.insert_employee(emp_id, fname, lname, role, gender, status):
+        if self.db.insert_employee(emp_id, fname, lname, role, company, status):
             messagebox.showinfo("Success", "Employee added successfully!")
             self.clear_form()
             self.load_data()
@@ -134,7 +134,7 @@ class App(ctk.CTk):
         self.entry_fname.delete(0, 'end')
         self.entry_lname.delete(0, 'end')
         self.entry_role.delete(0, 'end')
-        self.combo_gender.set("Gender")
+        self.combo_company.set("Company")
         self.combo_status.set("Status")
 
     def load_data(self):
