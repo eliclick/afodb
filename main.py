@@ -38,9 +38,9 @@ class App(ctk.CTk):
         self.label_heading = ctk.CTkLabel(self.form_frame, text="Add Employee", font=("Arial", 20, "bold"))
         self.label_heading.pack(pady=20)
 
-        # ID
-        self.entry_id = ctk.CTkEntry(self.form_frame, placeholder_text="ID")
-        self.entry_id.pack(pady=10, padx=20, fill="x")
+        # Email
+        self.entry_email = ctk.CTkEntry(self.form_frame, placeholder_text="Email")
+        self.entry_email.pack(pady=10, padx=20, fill="x")
 
         # First Name
         self.entry_fname = ctk.CTkEntry(self.form_frame, placeholder_text="First Name")
@@ -91,17 +91,17 @@ class App(ctk.CTk):
         style.map("Treeview.Heading",
                   background=[('active', '#3484F0')])
         
-        columns = ("id", "fname", "lname", "role", "company", "status")
+        columns = ("email", "fname", "lname", "role", "company", "status")
         self.tree = ttk.Treeview(self.table_frame, columns=columns, show="headings")
         
-        self.tree.heading("id", text="ID")
+        self.tree.heading("email", text="Email")
         self.tree.heading("fname", text="First Name")
         self.tree.heading("lname", text="Last Name")
         self.tree.heading("role", text="Role")
         self.tree.heading("company", text="Company")
         self.tree.heading("status", text="Status")
 
-        self.tree.column("id", width=50)
+        self.tree.column("email", width=250)
         self.tree.column("fname", width=100)
         self.tree.column("lname", width=100)
         self.tree.column("role", width=150)
@@ -111,26 +111,26 @@ class App(ctk.CTk):
         self.tree.pack(fill="both", expand=True, padx=10, pady=10)
 
     def add_employee(self):
-        emp_id = self.entry_id.get()
+        email = self.entry_email.get()
         fname = self.entry_fname.get()
         lname = self.entry_lname.get()
         role = self.entry_role.get()
         company = self.combo_company.get()
         status = self.combo_status.get()
 
-        if not (emp_id and fname and lname and role and company != "Company" and status != "Status"):
+        if not (email and fname and lname and role and company != "Company" and status != "Status"):
             messagebox.showerror("Error", "All fields are required!")
             return
 
-        if self.db.insert_employee(emp_id, fname, lname, role, company, status):
+        if self.db.insert_employee(email, fname, lname, role, company, status):
             messagebox.showinfo("Success", "Employee added successfully!")
             self.clear_form()
             self.load_data()
         else:
-            messagebox.showerror("Error", "ID already exists!")
+            messagebox.showerror("Error", "Email already exists!")
 
     def clear_form(self):
-        self.entry_id.delete(0, 'end')
+        self.entry_email.delete(0, 'end')
         self.entry_fname.delete(0, 'end')
         self.entry_lname.delete(0, 'end')
         self.entry_role.delete(0, 'end')
