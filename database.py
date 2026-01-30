@@ -10,7 +10,8 @@ class Database:
         self.cursor.execute("""
             CREATE TABLE IF NOT EXISTS employees (
                 id TEXT PRIMARY KEY,
-                name TEXT NOT NULL,
+                fname TEXT NOT NULL,
+                lname TEXT NOT NULL,
                 role TEXT NOT NULL,
                 gender TEXT NOT NULL,
                 status TEXT NOT NULL
@@ -18,10 +19,10 @@ class Database:
         """)
         self.conn.commit()
 
-    def insert_employee(self, emp_id, name, role, gender, status):
+    def insert_employee(self, emp_id, fname, lname, role, gender, status):
         try:
-            self.cursor.execute("INSERT INTO employees VALUES (?, ?, ?, ?, ?)",
-                                (emp_id, name, role, gender, status))
+            self.cursor.execute("INSERT INTO employees VALUES (?, ?, ?, ?, ?, ?)",
+                                (emp_id, fname, lname, role, gender, status))
             self.conn.commit()
             return True
         except sqlite3.IntegrityError:
@@ -35,10 +36,10 @@ class Database:
         self.cursor.execute("DELETE FROM employees WHERE id=?", (emp_id,))
         self.conn.commit()
 
-    def update_employee(self, emp_id, name, role, gender, status):
+    def update_employee(self, emp_id, fname, lname, role, gender, status):
         self.cursor.execute("""
-            UPDATE employees SET name=?, role=?, gender=?, status=? WHERE id=?
-        """, (name, role, gender, status, emp_id))
+            UPDATE employees SET fname=?, lname=?, role=?, gender=?, status=? WHERE id=?
+        """, (fname, lname, role, gender, status, emp_id))
         self.conn.commit()
 
     def __del__(self):
