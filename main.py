@@ -7,17 +7,29 @@ from database import Database
 ctk.set_appearance_mode("System")
 ctk.set_default_color_theme("blue")
 
-class App(ctk.CTk):
-    def __init__(self):
-        super().__init__()
-        self.title("Employee Management System")
-        self.geometry("900x600")
-        self.db = Database()
+class MainMenu(ctk.CTkFrame):
+    def __init__(self, master, open_add_user_callback):
+        super().__init__(master)
+        self.open_add_user_callback = open_add_user_callback
+
+        # Center content
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_rowconfigure(0, weight=1)
+
+        self.btn_add_user = ctk.CTkButton(self, text="Add new user", command=self.open_add_user_callback, font=("Arial", 16))
+        self.btn_add_user.grid(row=0, column=0, padx=20, pady=20)
+
+class EmployeeView(ctk.CTkFrame):
+    def __init__(self, master, db, back_callback):
+        super().__init__(master)
+        self.db = db
+        self.back_callback = back_callback
 
         # Configure grid layout
         self.grid_columnconfigure(0, weight=1)
         self.grid_columnconfigure(1, weight=3)
-        self.grid_rowconfigure(0, weight=1)
+        self.grid_rowconfigure(0, weight=1) # Form and Table
+        self.grid_rowconfigure(1, weight=0) # Back button
 
         # Form Frame
         self.form_frame = ctk.CTkFrame(self)
@@ -31,6 +43,10 @@ class App(ctk.CTk):
         
         self.create_table()
         
+        # Back Button
+        self.btn_back = ctk.CTkButton(self, text="Back to Menu", command=self.back_callback, fg_color="gray")
+        self.btn_back.grid(row=1, column=0, columnspan=2, pady=10)
+
         # Load Data
         self.load_data()
 
@@ -144,6 +160,29 @@ class App(ctk.CTk):
         employees = self.db.fetch_employees()
         for emp in employees:
             self.tree.insert("", "end", values=emp)
+
+class App(ctk.CTk):
+    def __init__(self):
+        super().__init__()
+        self.title("Employee Management System")
+        self.geometry("900x600")
+        self.db = Database()
+
+        self.current_frame = None
+        self.show_main_menu()
+
+    def switch_frame(self, frame_class, **kwargs):
+        if self.current_frame:
+            self.current_frame.destroy()
+
+        self.current_frame = frame_class(self, **kwargs)
+        self.current_frame.pack(fill="both", expand=True)
+
+    def show_main_menu(self):
+        self.switch_frame(MainMenu, open_add_user_callback=self.show_employee_view)
+
+    def show_employee_view(self):
+        self.switch_frame(EmployeeView, db=self.db, back_callback=self.show_main_menu)
 
 if __name__ == "__main__":
     app = App()
