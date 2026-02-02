@@ -17,6 +17,8 @@ class Database:
                 company TEXT NOT NULL,
                 status TEXT NOT NULL,
                 termed TEXT DEFAULT 'No'
+                status TEXT NOT NULL,
+                termed TEXT DEFAULT 'No'
             )
         """)
         self.conn.commit()
@@ -32,6 +34,8 @@ class Database:
 
     def insert_employee(self, email, fname, lname, role, company, status, termed="No"):
         try:
+            self.cursor.execute("INSERT INTO employees VALUES (?, ?, ?, ?, ?, ?, ?)",
+                                (email, fname, lname, role, company, status, termed))
             self.cursor.execute("INSERT INTO employees VALUES (?, ?, ?, ?, ?, ?, ?)",
                                 (email, fname, lname, role, company, status, termed))
             self.conn.commit()
@@ -51,6 +55,10 @@ class Database:
         self.cursor.execute("""
             UPDATE employees SET fname=?, lname=?, role=?, company=?, status=? WHERE email=?
         """, (fname, lname, role, company, status, email))
+        self.conn.commit()
+
+    def term_employee(self, email):
+        self.cursor.execute("UPDATE employees SET termed='Yes' WHERE email=?", (email,))
         self.conn.commit()
 
     def term_employee(self, email):
