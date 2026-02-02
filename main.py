@@ -76,10 +76,11 @@ class EmployeeTable(ctk.CTkFrame):
         return values[0]
 
 class MainMenu(ctk.CTkFrame):
-    def __init__(self, master, open_add_user_callback, open_term_user_callback):
+    def __init__(self, master, open_add_user_callback, open_term_user_callback, open_history_callback):
         super().__init__(master)
         self.open_add_user_callback = open_add_user_callback
         self.open_term_user_callback = open_term_user_callback
+        self.open_history_callback = open_history_callback
 
         # Center content
         self.grid_columnconfigure(0, weight=1)
@@ -87,7 +88,8 @@ class MainMenu(ctk.CTkFrame):
         self.grid_rowconfigure(1, weight=1)
         self.grid_rowconfigure(2, weight=0)
         self.grid_rowconfigure(3, weight=0)
-        self.grid_rowconfigure(4, weight=1)
+        self.grid_rowconfigure(4, weight=0)
+        self.grid_rowconfigure(5, weight=1)
 
         # Title
         self.label_title = ctk.CTkLabel(self, text="AFO IT DB", font=("Arial", 24, "bold"))
@@ -98,6 +100,9 @@ class MainMenu(ctk.CTkFrame):
 
         self.btn_term_user = ctk.CTkButton(self, text="Term a user", command=self.open_term_user_callback, font=("Arial", 16))
         self.btn_term_user.grid(row=3, column=0, padx=20, pady=20)
+
+        self.btn_history = ctk.CTkButton(self, text="History", command=self.open_history_callback, font=("Arial", 16))
+        self.btn_history.grid(row=4, column=0, padx=20, pady=20)
 
 class EmployeeView(ctk.CTkFrame):
     def __init__(self, master, db, back_callback):
@@ -224,6 +229,52 @@ class TermUserView(ctk.CTkFrame):
         messagebox.showinfo("Success", f"User {email} has been termed.")
         self.table_frame.load_data()
 
+class HistoryView(ctk.CTkFrame):
+    def __init__(self, master, db, back_callback):
+        super().__init__(master)
+        self.db = db
+        self.back_callback = back_callback
+
+        # Layout
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_rowconfigure(0, weight=0) # Title
+        self.grid_rowconfigure(1, weight=1) # Scrollable area
+        self.grid_rowconfigure(2, weight=0) # Back button
+
+        # Title
+        self.label_title = ctk.CTkLabel(self, text="History Log", font=("Arial", 24, "bold"))
+        self.label_title.grid(row=0, column=0, pady=20)
+
+        # Scrollable Frame for logs
+        self.scrollable_frame = ctk.CTkScrollableFrame(self)
+        self.scrollable_frame.grid(row=1, column=0, sticky="nsew", padx=20, pady=10)
+        self.scrollable_frame.grid_columnconfigure(0, weight=1)
+
+        self.load_history()
+
+        # Back Button
+        self.btn_back = ctk.CTkButton(self, text="Back to Menu", command=self.back_callback, fg_color="gray")
+        self.btn_back.grid(row=2, column=0, pady=20)
+
+    def load_history(self):
+        history = self.db.fetch_history()
+        for i, row in enumerate(history):
+            # row: (id, timestamp, action, details)
+            log_id, timestamp, action, details = row
+
+            frame = ctk.CTkFrame(self.scrollable_frame)
+            frame.pack(fill="x", pady=5, padx=5)
+            frame.grid_columnconfigure(1, weight=1)
+
+            lbl_time = ctk.CTkLabel(frame, text=timestamp, font=("Arial", 12))
+            lbl_time.grid(row=0, column=0, padx=10, pady=5, sticky="w")
+
+            lbl_action = ctk.CTkLabel(frame, text=action, font=("Arial", 12, "bold"))
+            lbl_action.grid(row=0, column=1, padx=10, pady=5, sticky="w")
+
+            lbl_details = ctk.CTkLabel(frame, text=details, font=("Arial", 12), wraplength=600, justify="left")
+            lbl_details.grid(row=1, column=0, columnspan=2, padx=10, pady=5, sticky="w")
+
 class App(ctk.CTk):
     def __init__(self):
         super().__init__()
@@ -242,13 +293,16 @@ class App(ctk.CTk):
         self.current_frame.pack(fill="both", expand=True)
 
     def show_main_menu(self):
-        self.switch_frame(MainMenu, open_add_user_callback=self.show_employee_view, open_term_user_callback=self.show_term_user_view)
+        self.switch_frame(MainMenu, open_add_user_callback=self.show_employee_view, open_term_user_callback=self.show_term_user_view, open_history_callback=self.show_history_view)
 
     def show_employee_view(self):
         self.switch_frame(EmployeeView, db=self.db, back_callback=self.show_main_menu)
 
     def show_term_user_view(self):
         self.switch_frame(TermUserView, db=self.db, back_callback=self.show_main_menu)
+
+    def show_history_view(self):
+        self.switch_frame(HistoryView, db=self.db, back_callback=self.show_main_menu)
 
 if __name__ == "__main__":
     app = App()
