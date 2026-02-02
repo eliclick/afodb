@@ -46,10 +46,11 @@ class Database:
         try:
             self.cursor.execute("INSERT INTO employees VALUES (?, ?, ?, ?, ?, ?, ?)",
                                 (email, fname, lname, role, company, status, termed))
-            self.conn.commit()
             self.log_event("Employee Added", f"Added employee: {email}")
+            self.conn.commit()
             return True
         except sqlite3.IntegrityError:
+            self.conn.rollback()
             return False
 
     def fetch_employees(self):
@@ -58,24 +59,23 @@ class Database:
 
     def delete_employee(self, email):
         self.cursor.execute("DELETE FROM employees WHERE email=?", (email,))
-        self.conn.commit()
         self.log_event("Employee Deleted", f"Deleted employee: {email}")
+        self.conn.commit()
 
     def update_employee(self, email, fname, lname, role, company, status):
         self.cursor.execute("""
             UPDATE employees SET fname=?, lname=?, role=?, company=?, status=? WHERE email=?
         """, (fname, lname, role, company, status, email))
-        self.conn.commit()
         self.log_event("Employee Updated", f"Updated employee: {email}")
+        self.conn.commit()
 
     def term_employee(self, email):
         self.cursor.execute("UPDATE employees SET termed='Yes' WHERE email=?", (email,))
-        self.conn.commit()
         self.log_event("Employee Termed", f"Termed employee: {email}")
+        self.conn.commit()
 
     def log_event(self, action, details):
         self.cursor.execute("INSERT INTO history (action, details) VALUES (?, ?)", (action, details))
-        self.conn.commit()
 
     def fetch_history(self):
         self.cursor.execute("SELECT * FROM history ORDER BY timestamp DESC, id DESC")
