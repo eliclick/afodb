@@ -17,8 +17,6 @@ class Database:
                 company TEXT NOT NULL,
                 status TEXT NOT NULL,
                 termed TEXT DEFAULT 'No'
-                status TEXT NOT NULL,
-                termed TEXT DEFAULT 'No'
             )
         """)
         self.conn.commit()
