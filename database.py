@@ -5,6 +5,7 @@ class Database:
         self.conn = sqlite3.connect(db_name)
         self.cursor = self.conn.cursor()
         self.create_table()
+        self.migrate_table()
 
     def create_table(self):
         self.cursor.execute("""
@@ -14,15 +15,25 @@ class Database:
                 lname TEXT NOT NULL,
                 role TEXT NOT NULL,
                 company TEXT NOT NULL,
-                status TEXT NOT NULL
+                status TEXT NOT NULL,
+                termed TEXT DEFAULT 'No'
             )
         """)
         self.conn.commit()
 
-    def insert_employee(self, email, fname, lname, role, company, status):
+    def migrate_table(self):
+        """Adds 'termed' column if it doesn't exist."""
         try:
-            self.cursor.execute("INSERT INTO employees VALUES (?, ?, ?, ?, ?, ?)",
-                                (email, fname, lname, role, company, status))
+            self.cursor.execute("ALTER TABLE employees ADD COLUMN termed TEXT DEFAULT 'No'")
+            self.conn.commit()
+        except sqlite3.OperationalError:
+            # Column likely already exists
+            pass
+
+    def insert_employee(self, email, fname, lname, role, company, status, termed="No"):
+        try:
+            self.cursor.execute("INSERT INTO employees VALUES (?, ?, ?, ?, ?, ?, ?)",
+                                (email, fname, lname, role, company, status, termed))
             self.conn.commit()
             return True
         except sqlite3.IntegrityError:
@@ -40,6 +51,10 @@ class Database:
         self.cursor.execute("""
             UPDATE employees SET fname=?, lname=?, role=?, company=?, status=? WHERE email=?
         """, (fname, lname, role, company, status, email))
+        self.conn.commit()
+
+    def term_employee(self, email):
+        self.cursor.execute("UPDATE employees SET termed='Yes' WHERE email=?", (email,))
         self.conn.commit()
 
     def __del__(self):
