@@ -76,10 +76,11 @@ class EmployeeTable(ctk.CTkFrame):
         return values[0]
 
 class MainMenu(ctk.CTkFrame):
-    def __init__(self, master, open_add_user_callback, open_term_user_callback):
+    def __init__(self, master, open_add_user_callback, open_term_user_callback, open_history_callback):
         super().__init__(master)
         self.open_add_user_callback = open_add_user_callback
         self.open_term_user_callback = open_term_user_callback
+        self.open_history_callback = open_history_callback
 
         # Center content
         self.grid_columnconfigure(0, weight=1)
@@ -87,7 +88,8 @@ class MainMenu(ctk.CTkFrame):
         self.grid_rowconfigure(1, weight=1)
         self.grid_rowconfigure(2, weight=0)
         self.grid_rowconfigure(3, weight=0)
-        self.grid_rowconfigure(4, weight=1)
+        self.grid_rowconfigure(4, weight=0)
+        self.grid_rowconfigure(5, weight=1)
 
         # Title
         self.label_title = ctk.CTkLabel(self, text="AFO IT DB", font=("Arial", 24, "bold"))
@@ -98,6 +100,69 @@ class MainMenu(ctk.CTkFrame):
 
         self.btn_term_user = ctk.CTkButton(self, text="Term a user", command=self.open_term_user_callback, font=("Arial", 16))
         self.btn_term_user.grid(row=3, column=0, padx=20, pady=20)
+
+        self.btn_history = ctk.CTkButton(self, text="View History", command=self.open_history_callback, font=("Arial", 16))
+        self.btn_history.grid(row=4, column=0, padx=20, pady=20)
+
+class HistoryView(ctk.CTkFrame):
+    def __init__(self, master, db, back_callback):
+        super().__init__(master)
+        self.db = db
+        self.back_callback = back_callback
+
+        # Configure grid layout
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_rowconfigure(0, weight=1) # Table
+        self.grid_rowconfigure(1, weight=0) # Back button
+
+        # Table Frame
+        self.create_table()
+        self.load_data()
+
+        # Back Button
+        self.btn_back = ctk.CTkButton(self, text="Back to Menu", command=self.back_callback, fg_color="gray")
+        self.btn_back.grid(row=1, column=0, pady=10)
+
+    def create_table(self):
+        style = ttk.Style()
+        style.theme_use("default")
+        style.configure("Treeview",
+                        background="#2a2d2e",
+                        foreground="white",
+                        rowheight=25,
+                        fieldbackground="#343638",
+                        bordercolor="#343638",
+                        borderwidth=0)
+        style.map('Treeview', background=[('selected', '#22559b')])
+        style.configure("Treeview.Heading",
+                        background="#565b5e",
+                        foreground="white",
+                        relief="flat")
+        style.map("Treeview.Heading",
+                  background=[('active', '#3484F0')])
+
+        columns = ("id", "timestamp", "action", "details")
+        self.tree = ttk.Treeview(self, columns=columns, show="headings")
+
+        self.tree.heading("id", text="ID")
+        self.tree.heading("timestamp", text="Timestamp")
+        self.tree.heading("action", text="Action")
+        self.tree.heading("details", text="Details")
+
+        self.tree.column("id", width=50)
+        self.tree.column("timestamp", width=150)
+        self.tree.column("action", width=150)
+        self.tree.column("details", width=400)
+
+        self.tree.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
+
+    def load_data(self):
+        for item in self.tree.get_children():
+            self.tree.delete(item)
+
+        history = self.db.fetch_history()
+        for record in history:
+            self.tree.insert("", "end", values=record)
 
 class EmployeeView(ctk.CTkFrame):
     def __init__(self, master, db, back_callback):
@@ -228,7 +293,7 @@ class App(ctk.CTk):
     def __init__(self):
         super().__init__()
         self.title("Employee Management System")
-        self.geometry("900x600")
+        self.geometry("1200x600")
         self.db = Database()
 
         self.current_frame = None
@@ -242,13 +307,16 @@ class App(ctk.CTk):
         self.current_frame.pack(fill="both", expand=True)
 
     def show_main_menu(self):
-        self.switch_frame(MainMenu, open_add_user_callback=self.show_employee_view, open_term_user_callback=self.show_term_user_view)
+        self.switch_frame(MainMenu, open_add_user_callback=self.show_employee_view, open_term_user_callback=self.show_term_user_view, open_history_callback=self.show_history_view)
 
     def show_employee_view(self):
         self.switch_frame(EmployeeView, db=self.db, back_callback=self.show_main_menu)
 
     def show_term_user_view(self):
         self.switch_frame(TermUserView, db=self.db, back_callback=self.show_main_menu)
+
+    def show_history_view(self):
+        self.switch_frame(HistoryView, db=self.db, back_callback=self.show_main_menu)
 
 if __name__ == "__main__":
     app = App()
