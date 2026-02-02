@@ -77,6 +77,20 @@ class Database:
         except sqlite3.IntegrityError:
             return False
 
+    def search_employees(self, query):
+        q = f"%{query}%"
+        self.cursor.execute("""
+            SELECT * FROM employees WHERE
+            email LIKE ? OR
+            fname LIKE ? OR
+            lname LIKE ? OR
+            role LIKE ? OR
+            company LIKE ? OR
+            status LIKE ? OR
+            termed LIKE ?
+        """, (q, q, q, q, q, q, q))
+        return self.cursor.fetchall()
+
     def fetch_employees(self):
         self.cursor.execute("SELECT * FROM employees")
         return self.cursor.fetchall()
