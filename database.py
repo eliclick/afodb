@@ -5,6 +5,7 @@ class Database:
         self.conn = sqlite3.connect(db_name)
         self.cursor = self.conn.cursor()
         self.create_table()
+        self.create_history_table()
         self.check_schema()
         self.migrate_table()
 
@@ -47,6 +48,25 @@ class Database:
             # Column likely already exists
             pass
 
+    def create_history_table(self):
+        self.cursor.execute("""
+            CREATE TABLE IF NOT EXISTS history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+                action TEXT,
+                details TEXT
+            )
+        """)
+        self.conn.commit()
+
+    def log_event(self, action, details):
+        self.cursor.execute("INSERT INTO history (action, details) VALUES (?, ?)", (action, details))
+        self.conn.commit()
+
+    def fetch_history(self):
+        self.cursor.execute("SELECT * FROM history ORDER BY timestamp DESC, id DESC")
+        return self.cursor.fetchall()
+
     def insert_employee(self, email, fname, lname, role, company, status, termed="No"):
         try:
             self.cursor.execute("INSERT INTO employees VALUES (?, ?, ?, ?, ?, ?, ?)",
@@ -71,10 +91,12 @@ class Database:
             UPDATE employees SET fname=?, lname=?, role=?, company=?, status=? WHERE email=?
         """, (fname, lname, role, company, status, email))
         self.conn.commit()
+        self.log_event("Employee Updated", f"Updated employee: {email}")
 
     def term_employee(self, email):
         self.cursor.execute("UPDATE employees SET termed='Yes' WHERE email=?", (email,))
         self.conn.commit()
+        self.log_event("Employee Termed", f"Termed employee: {email}")
 
     def __del__(self):
         self.conn.close()
