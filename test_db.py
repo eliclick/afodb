@@ -16,7 +16,13 @@ class TestDatabase(unittest.TestCase):
         self.db.insert_employee("john.doe@example.com", "John", "Doe", "Software Engineer", "Custom Air", "Active")
         employees = self.db.fetch_employees()
         self.assertEqual(len(employees), 1)
-        self.assertEqual(employees[0], ("john.doe@example.com", "John", "Doe", "Software Engineer", "Custom Air", "Active"))
+        self.assertEqual(employees[0], ("john.doe@example.com", "John", "Doe", "Software Engineer", "Custom Air", "Active", "No"))
+
+    def test_term_employee(self):
+        self.db.insert_employee("john.doe@example.com", "John", "Doe", "Software Engineer", "Custom Air", "Active")
+        self.db.term_employee("john.doe@example.com")
+        employees = self.db.fetch_employees()
+        self.assertEqual(employees[0][-1], "Yes")
 
     def test_duplicate_email(self):
         self.db.insert_employee("john.doe@example.com", "John", "Doe", "Software Engineer", "Custom Air", "Active")
