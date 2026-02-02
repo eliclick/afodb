@@ -7,17 +7,29 @@ from database import Database
 ctk.set_appearance_mode("System")
 ctk.set_default_color_theme("blue")
 
-class App(ctk.CTk):
-    def __init__(self):
-        super().__init__()
-        self.title("Employee Management System")
-        self.geometry("900x600")
-        self.db = Database()
+class MainMenu(ctk.CTkFrame):
+    def __init__(self, master, open_add_user_callback):
+        super().__init__(master)
+        self.open_add_user_callback = open_add_user_callback
+
+        # Center content
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_rowconfigure(0, weight=1)
+
+        self.btn_add_user = ctk.CTkButton(self, text="Add new user", command=self.open_add_user_callback, font=("Arial", 16))
+        self.btn_add_user.grid(row=0, column=0, padx=20, pady=20)
+
+class EmployeeView(ctk.CTkFrame):
+    def __init__(self, master, db, back_callback):
+        super().__init__(master)
+        self.db = db
+        self.back_callback = back_callback
 
         # Configure grid layout
         self.grid_columnconfigure(0, weight=1)
         self.grid_columnconfigure(1, weight=3)
-        self.grid_rowconfigure(0, weight=1)
+        self.grid_rowconfigure(0, weight=1) # Form and Table
+        self.grid_rowconfigure(1, weight=0) # Back button
 
         # Form Frame
         self.form_frame = ctk.CTkFrame(self)
@@ -31,6 +43,10 @@ class App(ctk.CTk):
         
         self.create_table()
         
+        # Back Button
+        self.btn_back = ctk.CTkButton(self, text="Back to Menu", command=self.back_callback, fg_color="gray")
+        self.btn_back.grid(row=1, column=0, columnspan=2, pady=10)
+
         # Load Data
         self.load_data()
 
@@ -38,9 +54,9 @@ class App(ctk.CTk):
         self.label_heading = ctk.CTkLabel(self.form_frame, text="Add Employee", font=("Arial", 20, "bold"))
         self.label_heading.pack(pady=20)
 
-        # ID
-        self.entry_id = ctk.CTkEntry(self.form_frame, placeholder_text="ID")
-        self.entry_id.pack(pady=10, padx=20, fill="x")
+        # Email
+        self.entry_email = ctk.CTkEntry(self.form_frame, placeholder_text="Email")
+        self.entry_email.pack(pady=10, padx=20, fill="x")
 
         # First Name
         self.entry_fname = ctk.CTkEntry(self.form_frame, placeholder_text="First Name")
@@ -91,17 +107,17 @@ class App(ctk.CTk):
         style.map("Treeview.Heading",
                   background=[('active', '#3484F0')])
         
-        columns = ("id", "fname", "lname", "role", "company", "status")
+        columns = ("email", "fname", "lname", "role", "company", "status")
         self.tree = ttk.Treeview(self.table_frame, columns=columns, show="headings")
         
-        self.tree.heading("id", text="ID")
+        self.tree.heading("email", text="Email")
         self.tree.heading("fname", text="First Name")
         self.tree.heading("lname", text="Last Name")
         self.tree.heading("role", text="Role")
         self.tree.heading("company", text="Company")
         self.tree.heading("status", text="Status")
 
-        self.tree.column("id", width=50)
+        self.tree.column("email", width=250)
         self.tree.column("fname", width=100)
         self.tree.column("lname", width=100)
         self.tree.column("role", width=150)
@@ -111,26 +127,26 @@ class App(ctk.CTk):
         self.tree.pack(fill="both", expand=True, padx=10, pady=10)
 
     def add_employee(self):
-        emp_id = self.entry_id.get()
+        email = self.entry_email.get()
         fname = self.entry_fname.get()
         lname = self.entry_lname.get()
         role = self.entry_role.get()
         company = self.combo_company.get()
         status = self.combo_status.get()
 
-        if not (emp_id and fname and lname and role and company != "Company" and status != "Status"):
+        if not (email and fname and lname and role and company != "Company" and status != "Status"):
             messagebox.showerror("Error", "All fields are required!")
             return
 
-        if self.db.insert_employee(emp_id, fname, lname, role, company, status):
+        if self.db.insert_employee(email, fname, lname, role, company, status):
             messagebox.showinfo("Success", "Employee added successfully!")
             self.clear_form()
             self.load_data()
         else:
-            messagebox.showerror("Error", "ID already exists!")
+            messagebox.showerror("Error", "Email already exists!")
 
     def clear_form(self):
-        self.entry_id.delete(0, 'end')
+        self.entry_email.delete(0, 'end')
         self.entry_fname.delete(0, 'end')
         self.entry_lname.delete(0, 'end')
         self.entry_role.delete(0, 'end')
@@ -144,6 +160,29 @@ class App(ctk.CTk):
         employees = self.db.fetch_employees()
         for emp in employees:
             self.tree.insert("", "end", values=emp)
+
+class App(ctk.CTk):
+    def __init__(self):
+        super().__init__()
+        self.title("Employee Management System")
+        self.geometry("900x600")
+        self.db = Database()
+
+        self.current_frame = None
+        self.show_main_menu()
+
+    def switch_frame(self, frame_class, **kwargs):
+        if self.current_frame:
+            self.current_frame.destroy()
+
+        self.current_frame = frame_class(self, **kwargs)
+        self.current_frame.pack(fill="both", expand=True)
+
+    def show_main_menu(self):
+        self.switch_frame(MainMenu, open_add_user_callback=self.show_employee_view)
+
+    def show_employee_view(self):
+        self.switch_frame(EmployeeView, db=self.db, back_callback=self.show_main_menu)
 
 if __name__ == "__main__":
     app = App()
