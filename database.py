@@ -6,6 +6,7 @@ class Database:
         self.conn = sqlite3.connect(db_name)
         self.cursor = self.conn.cursor()
         self.create_table()
+        self.check_schema()
 
     def create_table(self):
         self.cursor.execute("""
@@ -15,7 +16,8 @@ class Database:
                 lname TEXT NOT NULL,
                 role TEXT NOT NULL,
                 company TEXT NOT NULL,
-                status TEXT NOT NULL
+                status TEXT NOT NULL,
+                termed TEXT NOT NULL
             )
         """)
         self.cursor.execute("""
@@ -28,10 +30,17 @@ class Database:
         """)
         self.conn.commit()
 
-    def insert_employee(self, email, fname, lname, role, company, status):
+    def check_schema(self):
+        self.cursor.execute("PRAGMA table_info(employees)")
+        columns = [info[1] for info in self.cursor.fetchall()]
+        if "termed" not in columns:
+            self.cursor.execute("ALTER TABLE employees ADD COLUMN termed TEXT NOT NULL DEFAULT 'No'")
+            self.conn.commit()
+
+    def insert_employee(self, email, fname, lname, role, company, status, termed="No"):
         try:
-            self.cursor.execute("INSERT INTO employees VALUES (?, ?, ?, ?, ?, ?)",
-                                (email, fname, lname, role, company, status))
+            self.cursor.execute("INSERT INTO employees VALUES (?, ?, ?, ?, ?, ?, ?)",
+                                (email, fname, lname, role, company, status, termed))
             self.log_event("Insert", f"Added employee {email}")
             self.conn.commit()
             return True
@@ -58,11 +67,11 @@ class Database:
             self.conn.rollback()
             return False
 
-    def update_employee(self, email, fname, lname, role, company, status):
+    def update_employee(self, email, fname, lname, role, company, status, termed):
         try:
             self.cursor.execute("""
-                UPDATE employees SET fname=?, lname=?, role=?, company=?, status=? WHERE email=?
-            """, (fname, lname, role, company, status, email))
+                UPDATE employees SET fname=?, lname=?, role=?, company=?, status=?, termed=? WHERE email=?
+            """, (fname, lname, role, company, status, termed, email))
             if self.cursor.rowcount > 0:
                 self.log_event("Update", f"Updated employee {email}")
                 self.conn.commit()

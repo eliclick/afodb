@@ -10,7 +10,7 @@ ctk.set_default_color_theme("blue")
 class EmployeeTable(ctk.CTkFrame):
     def __init__(self, master, columns=None, **kwargs):
         super().__init__(master, **kwargs)
-        self.columns = columns or ("email", "fname", "lname", "role", "company", "status")
+        self.columns = columns or ("email", "fname", "lname", "role", "company", "status", "termed")
         self.create_table()
 
     def create_table(self):
@@ -53,6 +53,24 @@ class EmployeeTable(ctk.CTkFrame):
         if "status" in self.columns:
             self.tree.heading("status", text="Status")
             self.tree.column("status", width=100)
+        if "termed" in self.columns:
+            self.tree.heading("termed", text="Termed")
+            self.tree.column("termed", width=80)
+        if "id" in self.columns:
+             self.tree.heading("id", text="ID")
+             self.tree.column("id", width=50)
+        if "timestamp" in self.columns:
+             self.tree.heading("timestamp", text="Timestamp")
+             self.tree.column("timestamp", width=150)
+        if "action" in self.columns:
+             self.tree.heading("action", text="Action")
+             self.tree.column("action", width=100)
+        if "details" in self.columns:
+             self.tree.heading("details", text="Details")
+             self.tree.column("details", width=500)
+
+        # Highlight termed employees
+        self.tree.tag_configure('termed', background='red', foreground='white')
 
         self.tree.pack(fill="both", expand=True, padx=10, pady=10)
 
@@ -60,7 +78,12 @@ class EmployeeTable(ctk.CTkFrame):
         for item in self.tree.get_children():
             self.tree.delete(item)
         for row in data:
-            self.tree.insert("", "end", values=row)
+            tags = ()
+            # Highlight if termed. Assuming standard employee tuple structure.
+            # Check if 'termed' is in columns to avoid doing this for history table
+            if "termed" in self.columns and len(row) > 6 and row[6] == "Yes":
+                tags = ('termed',)
+            self.tree.insert("", "end", values=row, tags=tags)
 
     def get_selected(self):
         selected_item = self.tree.selection()
@@ -69,16 +92,17 @@ class EmployeeTable(ctk.CTkFrame):
         return None
 
 class MainMenu(ctk.CTkFrame):
-    def __init__(self, master, open_add_user_callback, open_edit_user_callback, open_history_callback):
+    def __init__(self, master, open_add_user_callback, open_edit_user_callback, open_term_user_callback, open_history_callback):
         super().__init__(master)
         self.open_add_user_callback = open_add_user_callback
         self.open_edit_user_callback = open_edit_user_callback
+        self.open_term_user_callback = open_term_user_callback
         self.open_history_callback = open_history_callback
 
         # Center content
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(0, weight=1)
-        self.grid_rowconfigure(5, weight=1)
+        self.grid_rowconfigure(6, weight=1)
 
         self.label_title = ctk.CTkLabel(self, text="AFO IT DB", font=("Arial", 24, "bold"))
         self.label_title.grid(row=1, column=0, padx=20, pady=(20, 10))
@@ -89,8 +113,11 @@ class MainMenu(ctk.CTkFrame):
         self.btn_edit_user = ctk.CTkButton(self, text="Edit Employees", command=self.open_edit_user_callback, font=("Arial", 16))
         self.btn_edit_user.grid(row=3, column=0, padx=20, pady=10)
 
+        self.btn_term_user = ctk.CTkButton(self, text="Term Employee", command=self.open_term_user_callback, font=("Arial", 16))
+        self.btn_term_user.grid(row=4, column=0, padx=20, pady=10)
+
         self.btn_history = ctk.CTkButton(self, text="History", command=self.open_history_callback, font=("Arial", 16))
-        self.btn_history.grid(row=4, column=0, padx=20, pady=(10, 20))
+        self.btn_history.grid(row=5, column=0, padx=20, pady=(10, 20))
 
 class EmployeeView(ctk.CTkFrame):
     def __init__(self, master, db, back_callback):
@@ -151,6 +178,11 @@ class EmployeeView(ctk.CTkFrame):
         self.combo_status.set("Status")
         self.combo_status.pack(pady=10, padx=20, fill="x")
 
+        # Termed
+        self.combo_termed = ctk.CTkComboBox(self.form_frame, values=["No", "Yes"])
+        self.combo_termed.set("No")
+        self.combo_termed.pack(pady=10, padx=20, fill="x")
+
         # Add Button
         self.btn_add = ctk.CTkButton(self.form_frame, text="Add Employee", command=self.add_employee)
         self.btn_add.pack(pady=20, padx=20, fill="x")
@@ -166,12 +198,13 @@ class EmployeeView(ctk.CTkFrame):
         role = self.entry_role.get()
         company = self.combo_company.get()
         status = self.combo_status.get()
+        termed = self.combo_termed.get()
 
         if not (email and fname and lname and role and company != "Company" and status != "Status"):
             messagebox.showerror("Error", "All fields are required!")
             return
 
-        if self.db.insert_employee(email, fname, lname, role, company, status):
+        if self.db.insert_employee(email, fname, lname, role, company, status, termed):
             messagebox.showinfo("Success", "Employee added successfully!")
             self.clear_form()
             self.load_data()
@@ -185,6 +218,7 @@ class EmployeeView(ctk.CTkFrame):
         self.entry_role.delete(0, 'end')
         self.combo_company.set("Company")
         self.combo_status.set("Status")
+        self.combo_termed.set("No")
 
     def load_data(self):
         employees = self.db.fetch_employees()
@@ -205,12 +239,9 @@ class HistoryView(ctk.CTkFrame):
         self.table = EmployeeTable(self, columns=("id", "timestamp", "action", "details"))
         self.table.grid(row=1, column=0, padx=10, pady=10, sticky="nsew")
 
-        # Customizing columns for History
-        self.table.tree.heading("id", text="ID")
-        self.table.tree.heading("timestamp", text="Timestamp")
-        self.table.tree.heading("action", text="Action")
-        self.table.tree.heading("details", text="Details")
-
+        # Not setting column widths here because I moved them to EmployeeTable.create_table
+        # based on column presence, but HistoryView had custom widths.
+        # I'll re-apply them here to be safe and match original.
         self.table.tree.column("id", width=50)
         self.table.tree.column("timestamp", width=150)
         self.table.tree.column("action", width=100)
@@ -290,6 +321,9 @@ class EditEmployeesView(ctk.CTkFrame):
         self.combo_status = ctk.CTkComboBox(self.edit_frame, values=["Active", "Inactive"])
         self.combo_status.pack(pady=10, padx=20, fill="x")
 
+        self.combo_termed = ctk.CTkComboBox(self.edit_frame, values=["No", "Yes"])
+        self.combo_termed.pack(pady=10, padx=20, fill="x")
+
         self.btn_save = ctk.CTkButton(self.edit_frame, text="Save Changes", command=self.save_changes)
         self.btn_save.pack(pady=20, padx=20, fill="x")
 
@@ -322,6 +356,7 @@ class EditEmployeesView(ctk.CTkFrame):
 
         self.combo_company.set(employee[4])
         self.combo_status.set(employee[5])
+        self.combo_termed.set(employee[6])
 
     def load_data(self):
         employees = self.db.fetch_employees()
@@ -356,12 +391,68 @@ class EditEmployeesView(ctk.CTkFrame):
         role = self.entry_role.get()
         company = self.combo_company.get()
         status = self.combo_status.get()
+        termed = self.combo_termed.get()
 
-        if self.db.update_employee(email, fname, lname, role, company, status):
+        if self.db.update_employee(email, fname, lname, role, company, status, termed):
             messagebox.showinfo("Success", "Employee updated.")
             self.show_list_view()
         else:
             messagebox.showerror("Error", "Failed to update employee.")
+
+class TermEmployeeView(ctk.CTkFrame):
+    def __init__(self, master, db, back_callback):
+        super().__init__(master)
+        self.db = db
+        self.back_callback = back_callback
+
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_rowconfigure(1, weight=1)
+
+        self.label_heading = ctk.CTkLabel(self, text="Select Employee to Terminate", font=("Arial", 20, "bold"))
+        self.label_heading.grid(row=0, column=0, pady=10)
+
+        self.table = EmployeeTable(self)
+        self.table.grid(row=1, column=0, sticky="nsew", padx=10, pady=10)
+
+        self.btn_term = ctk.CTkButton(self, text="Term Selected", command=self.on_term, fg_color="firebrick")
+        self.btn_term.grid(row=2, column=0, pady=10)
+
+        self.btn_back = ctk.CTkButton(self, text="Back to Menu", command=self.back_callback, fg_color="gray")
+        self.btn_back.grid(row=3, column=0, pady=10)
+
+        self.load_data()
+
+    def load_data(self):
+        employees = self.db.fetch_employees()
+        self.table.load_data(employees)
+
+    def on_term(self):
+        selected = self.table.get_selected()
+        if not selected:
+            messagebox.showwarning("Warning", "Please select an employee first.")
+            return
+
+        email = selected[0]
+
+        # Check if already termed
+        if len(selected) > 6 and selected[6] == "Yes":
+             messagebox.showinfo("Info", "Employee is already termed.")
+             return
+
+        confirm = messagebox.askyesno("Confirm Term", f"Are you sure you want to terminate {email}?")
+        if confirm:
+            fname = selected[1]
+            lname = selected[2]
+            role = selected[3]
+            company = selected[4]
+            status = selected[5]
+            termed = "Yes"
+
+            if self.db.update_employee(email, fname, lname, role, company, status, termed):
+                messagebox.showinfo("Success", "Employee termed.")
+                self.load_data()
+            else:
+                messagebox.showerror("Error", "Failed to term employee.")
 
 class App(ctk.CTk):
     def __init__(self):
@@ -384,6 +475,7 @@ class App(ctk.CTk):
         self.switch_frame(MainMenu,
                           open_add_user_callback=self.show_employee_view,
                           open_edit_user_callback=self.show_edit_employees_view,
+                          open_term_user_callback=self.show_term_employee_view,
                           open_history_callback=self.show_history_view)
 
     def show_employee_view(self):
@@ -391,6 +483,9 @@ class App(ctk.CTk):
 
     def show_edit_employees_view(self):
         self.switch_frame(EditEmployeesView, db=self.db, back_callback=self.show_main_menu)
+
+    def show_term_employee_view(self):
+        self.switch_frame(TermEmployeeView, db=self.db, back_callback=self.show_main_menu)
 
     def show_history_view(self):
         self.switch_frame(HistoryView, db=self.db, back_callback=self.show_main_menu)
