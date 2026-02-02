@@ -5,19 +5,8 @@ class Database:
         self.conn = sqlite3.connect(db_name)
         self.cursor = self.conn.cursor()
         self.create_table()
-        self.create_history_table()
+        self.check_schema()
         self.migrate_table()
-
-    def create_history_table(self):
-        self.cursor.execute("""
-            CREATE TABLE IF NOT EXISTS history (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-                action TEXT NOT NULL,
-                details TEXT NOT NULL
-            )
-        """)
-        self.conn.commit()
 
     def create_table(self):
         self.cursor.execute("""
@@ -33,6 +22,22 @@ class Database:
         """)
         self.conn.commit()
 
+    def check_schema(self):
+        """Checks if the schema is valid (has 'email' column). If not, resets the table."""
+        self.cursor.execute("PRAGMA table_info(employees)")
+        columns = [col[1].lower() for col in self.cursor.fetchall()]
+
+        # If table exists (columns not empty) but 'email' is missing
+        if columns and 'email' not in columns:
+            print("Warning: Corrupted database schema detected (missing 'email'). Backing up and recreating.")
+            try:
+                self.cursor.execute("ALTER TABLE employees RENAME TO employees_backup_corrupted")
+                self.conn.commit()
+            except sqlite3.OperationalError:
+                # Backup might already exist, append random suffix or just fail safe
+                pass
+            self.create_table()
+
     def migrate_table(self):
         """Adds 'termed' column if it doesn't exist."""
         try:
@@ -44,8 +49,6 @@ class Database:
 
     def insert_employee(self, email, fname, lname, role, company, status, termed="No"):
         try:
-            self.cursor.execute("INSERT INTO employees VALUES (?, ?, ?, ?, ?, ?, ?)",
-                                (email, fname, lname, role, company, status, termed))
             self.cursor.execute("INSERT INTO employees VALUES (?, ?, ?, ?, ?, ?, ?)",
                                 (email, fname, lname, role, company, status, termed))
             self.conn.commit()
@@ -68,20 +71,6 @@ class Database:
             UPDATE employees SET fname=?, lname=?, role=?, company=?, status=? WHERE email=?
         """, (fname, lname, role, company, status, email))
         self.conn.commit()
-        self.log_event("Employee Updated", f"Updated employee: {email}")
-
-    def term_employee(self, email):
-        self.cursor.execute("UPDATE employees SET termed='Yes' WHERE email=?", (email,))
-        self.conn.commit()
-        self.log_event("Employee Termed", f"Termed employee: {email}")
-
-    def log_event(self, action, details):
-        self.cursor.execute("INSERT INTO history (action, details) VALUES (?, ?)", (action, details))
-        self.conn.commit()
-
-    def fetch_history(self):
-        self.cursor.execute("SELECT * FROM history ORDER BY timestamp DESC, id DESC")
-        return self.cursor.fetchall()
 
     def term_employee(self, email):
         self.cursor.execute("UPDATE employees SET termed='Yes' WHERE email=?", (email,))
