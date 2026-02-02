@@ -56,11 +56,15 @@ class EmployeeTable(ctk.CTkFrame):
 
         self.tree.pack(fill="both", expand=True, padx=10, pady=10)
 
-    def load_data(self):
+    def load_data(self, data=None):
         for item in self.tree.get_children():
             self.tree.delete(item)
 
-        employees = self.db.fetch_employees()
+        if data is None:
+            employees = self.db.fetch_employees()
+        else:
+            employees = data
+
         for emp in employees:
             tags = ()
             if len(emp) > 6 and emp[6] == "Yes":
@@ -75,9 +79,51 @@ class EmployeeTable(ctk.CTkFrame):
         values = item['values']
         return values[0]
 
-class MainMenu(ctk.CTkFrame):
-    def __init__(self, master, open_add_user_callback, open_term_user_callback, open_history_callback):
+class ViewEmployeesView(ctk.CTkFrame):
+    def __init__(self, master, db, back_callback):
         super().__init__(master)
+        self.db = db
+        self.back_callback = back_callback
+
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_rowconfigure(0, weight=0) # Search
+        self.grid_rowconfigure(1, weight=1) # Table
+        self.grid_rowconfigure(2, weight=0) # Back
+
+        # Search Frame
+        self.search_frame = ctk.CTkFrame(self)
+        self.search_frame.grid(row=0, column=0, padx=10, pady=10, sticky="ew")
+
+        self.entry_search = ctk.CTkEntry(self.search_frame, placeholder_text="Search...")
+        self.entry_search.pack(side="left", fill="x", expand=True, padx=(0, 10))
+        self.entry_search.bind("<KeyRelease>", self.search_event) # Realtime search
+
+        self.btn_search = ctk.CTkButton(self.search_frame, text="Search", command=self.perform_search)
+        self.btn_search.pack(side="right")
+
+        # Table
+        self.table_frame = EmployeeTable(self, self.db)
+        self.table_frame.grid(row=1, column=0, padx=10, pady=10, sticky="nsew")
+
+        # Back Button
+        self.btn_back = ctk.CTkButton(self, text="Back to Menu", command=self.back_callback, fg_color="gray")
+        self.btn_back.grid(row=2, column=0, pady=10)
+
+    def search_event(self, event=None):
+        self.perform_search()
+
+    def perform_search(self):
+        query = self.entry_search.get()
+        if query:
+            results = self.db.search_employees(query)
+            self.table_frame.load_data(results)
+        else:
+            self.table_frame.load_data() # Reload all if empty
+
+class MainMenu(ctk.CTkFrame):
+    def __init__(self, master, open_view_employees_callback, open_add_user_callback, open_term_user_callback, open_history_callback):
+        super().__init__(master)
+        self.open_view_employees_callback = open_view_employees_callback
         self.open_add_user_callback = open_add_user_callback
         self.open_term_user_callback = open_term_user_callback
         self.open_history_callback = open_history_callback
@@ -89,20 +135,24 @@ class MainMenu(ctk.CTkFrame):
         self.grid_rowconfigure(2, weight=0)
         self.grid_rowconfigure(3, weight=0)
         self.grid_rowconfigure(4, weight=0)
-        self.grid_rowconfigure(5, weight=1)
+        self.grid_rowconfigure(5, weight=0)
+        self.grid_rowconfigure(6, weight=1)
 
         # Title
         self.label_title = ctk.CTkLabel(self, text="AFO IT DB", font=("Arial", 24, "bold"))
         self.label_title.grid(row=0, column=0, pady=20, sticky="n")
 
+        self.btn_view_employees = ctk.CTkButton(self, text="View Employees", command=self.open_view_employees_callback, font=("Arial", 16))
+        self.btn_view_employees.grid(row=2, column=0, padx=20, pady=20)
+
         self.btn_add_user = ctk.CTkButton(self, text="Add new user", command=self.open_add_user_callback, font=("Arial", 16))
-        self.btn_add_user.grid(row=2, column=0, padx=20, pady=20)
+        self.btn_add_user.grid(row=3, column=0, padx=20, pady=20)
 
         self.btn_term_user = ctk.CTkButton(self, text="Term a user", command=self.open_term_user_callback, font=("Arial", 16))
-        self.btn_term_user.grid(row=3, column=0, padx=20, pady=20)
+        self.btn_term_user.grid(row=4, column=0, padx=20, pady=20)
 
         self.btn_history = ctk.CTkButton(self, text="View History", command=self.open_history_callback, font=("Arial", 16))
-        self.btn_history.grid(row=4, column=0, padx=20, pady=20)
+        self.btn_history.grid(row=5, column=0, padx=20, pady=20)
 
 class HistoryView(ctk.CTkFrame):
     def __init__(self, master, db, back_callback):
@@ -307,7 +357,10 @@ class App(ctk.CTk):
         self.current_frame.pack(fill="both", expand=True)
 
     def show_main_menu(self):
-        self.switch_frame(MainMenu, open_add_user_callback=self.show_employee_view, open_term_user_callback=self.show_term_user_view, open_history_callback=self.show_history_view)
+        self.switch_frame(MainMenu, open_view_employees_callback=self.show_view_employees, open_add_user_callback=self.show_employee_view, open_term_user_callback=self.show_term_user_view, open_history_callback=self.show_history_view)
+
+    def show_view_employees(self):
+        self.switch_frame(ViewEmployeesView, db=self.db, back_callback=self.show_main_menu)
 
     def show_employee_view(self):
         self.switch_frame(EmployeeView, db=self.db, back_callback=self.show_main_menu)

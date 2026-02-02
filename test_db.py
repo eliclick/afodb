@@ -31,5 +31,27 @@ class TestDatabase(unittest.TestCase):
         employees = self.db.fetch_employees()
         self.assertEqual(len(employees), 1)
 
+    def test_search_employees(self):
+        self.db.insert_employee("alice@example.com", "Alice", "Wonderland", "Explorer", "Fantasy Inc", "Active")
+        self.db.insert_employee("bob@example.com", "Bob", "Builder", "Construction", "BuildCo", "Active")
+
+        # Test exact match
+        results = self.db.search_employees("Alice")
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0][1], "Alice")
+
+        # Test partial match
+        results = self.db.search_employees("Build")
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0][2], "Builder")
+
+        # Test match in different field (email)
+        results = self.db.search_employees("example.com")
+        self.assertEqual(len(results), 2)
+
+        # Test no match
+        results = self.db.search_employees("Charlie")
+        self.assertEqual(len(results), 0)
+
 if __name__ == '__main__':
     unittest.main()
