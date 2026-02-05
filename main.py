@@ -189,12 +189,13 @@ class ViewEmployeesView(ctk.CTkFrame):
         #     self.table_frame.load_data() # Reload all if empty
 
 class MainMenu(ctk.CTkFrame):
-    def __init__(self, master, open_view_employees_callback, open_add_user_callback, open_term_user_callback, open_history_callback):
+    def __init__(self, master, open_view_employees_callback, open_add_user_callback, open_term_user_callback, open_history_callback, quit_callback):
         super().__init__(master)
         self.open_view_employees_callback = open_view_employees_callback
         self.open_add_user_callback = open_add_user_callback
         self.open_term_user_callback = open_term_user_callback
         self.open_history_callback = open_history_callback
+        self.quit_callback = quit_callback
 
         # Center content
         self.grid_columnconfigure(0, weight=1)
@@ -204,7 +205,8 @@ class MainMenu(ctk.CTkFrame):
         self.grid_rowconfigure(3, weight=0)
         self.grid_rowconfigure(4, weight=0)
         self.grid_rowconfigure(5, weight=0)
-        self.grid_rowconfigure(6, weight=1)
+        self.grid_rowconfigure(6, weight=0)
+        self.grid_rowconfigure(7, weight=1)
 
         # Title
         self.label_title = ctk.CTkLabel(self, text="AFO IT DB", font=("Arial", 24, "bold"))
@@ -221,6 +223,9 @@ class MainMenu(ctk.CTkFrame):
 
         self.btn_history = ctk.CTkButton(self, text="View History", command=self.open_history_callback, font=("Arial", 16))
         self.btn_history.grid(row=5, column=0, padx=20, pady=20)
+
+        self.btn_quit = ctk.CTkButton(self, text="Quit App", command=self.quit_callback, font=("Arial", 16), fg_color="#D32F2F", hover_color="#B71C1C")
+        self.btn_quit.grid(row=6, column=0, padx=20, pady=20)
 
 class HistoryView(ctk.CTkFrame):
     def __init__(self, master, db, back_callback):
@@ -503,7 +508,18 @@ class App(ctk.CTk):
         self.current_frame.pack(fill="both", expand=True)
 
     def show_main_menu(self):
-        self.switch_frame(MainMenu, open_view_employees_callback=self.show_view_employees, open_add_user_callback=self.show_employee_view, open_term_user_callback=self.show_term_user_view, open_history_callback=self.show_history_view)
+        self.switch_frame(MainMenu, open_view_employees_callback=self.show_view_employees, open_add_user_callback=self.show_employee_view, open_term_user_callback=self.show_term_user_view, open_history_callback=self.show_history_view, quit_callback=self.quit_app)
+
+    def quit_app(self):
+        print("Disconnecting from Firebase...")
+        if self.db:
+            self.db.close()
+        try:
+            firebase_admin.delete_app(firebase_admin.get_app())
+        except ValueError:
+            pass
+        print("Closing App...")
+        self.destroy()
 
     def show_view_employees(self):
         self.switch_frame(ViewEmployeesView, db=self.db, back_callback=self.show_main_menu)
