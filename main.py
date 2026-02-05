@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 import customtkinter as ctk
+import getpass
 from tkinter import ttk, messagebox
 from database import Database
 
 # Set theme
 ctk.set_appearance_mode("System")
 ctk.set_default_color_theme("blue")
+
+CURRENT_APP_USER = getpass.getuser()
 
 class EmployeeTable(ctk.CTkFrame):
     def __init__(self, master, db):
@@ -191,18 +194,20 @@ class HistoryView(ctk.CTkFrame):
         style.map("Treeview.Heading",
                   background=[('active', '#3484F0')])
 
-        columns = ("id", "timestamp", "action", "details")
+        columns = ("id", "timestamp", "action", "details", "editor")
         self.tree = ttk.Treeview(self, columns=columns, show="headings")
 
         self.tree.heading("id", text="ID")
         self.tree.heading("timestamp", text="Timestamp")
         self.tree.heading("action", text="Action")
         self.tree.heading("details", text="Details")
+        self.tree.heading("editor", text="Changed By")
 
         self.tree.column("id", width=50)
         self.tree.column("timestamp", width=150)
         self.tree.column("action", width=150)
-        self.tree.column("details", width=400)
+        self.tree.column("details", width=300)
+        self.tree.column("editor", width=100)
 
         self.tree.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
 
@@ -345,6 +350,7 @@ class App(ctk.CTk):
         self.title("Employee Management System")
         self.geometry("1200x600")
         self.db = Database()
+        # self.user_id = os.getlogin()
 
         self.current_frame = None
         self.show_main_menu()

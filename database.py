@@ -1,4 +1,5 @@
 import sqlite3
+import getpass
 
 class Database:
     def __init__(self, db_name="employees.db"):
@@ -8,6 +9,7 @@ class Database:
         self.create_history_table()
         self.check_schema()
         self.migrate_table()
+        self.CURRENT_APP_USER = getpass.getuser()
 
     def create_table(self):
         self.cursor.execute("""
@@ -54,13 +56,14 @@ class Database:
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
                 action TEXT,
-                details TEXT
+                details TEXT,
+                editor TEXT
             )
         """)
         self.conn.commit()
 
-    def log_event(self, action, details):
-        self.cursor.execute("INSERT INTO history (action, details) VALUES (?, ?)", (action, details))
+    def log_event(self, action, details, editor):
+        self.cursor.execute("INSERT INTO history (action, details, editor) VALUES (?, ?, ?)", (action, details, editor))
         self.conn.commit()
 
     def fetch_history(self):
@@ -72,7 +75,7 @@ class Database:
             self.cursor.execute("INSERT INTO employees VALUES (?, ?, ?, ?, ?, ?, ?)",
                                 (email, fname, lname, role, company, status, termed))
             self.conn.commit()
-            self.log_event("Employee Added", f"Added employee: {email}")
+            self.log_event("Employee Added", f"Added employee: {email}", self.CURRENT_APP_USER)
             return True
         except sqlite3.IntegrityError:
             return False
@@ -98,19 +101,19 @@ class Database:
     def delete_employee(self, email):
         self.cursor.execute("DELETE FROM employees WHERE email=?", (email,))
         self.conn.commit()
-        self.log_event("Employee Deleted", f"Deleted employee: {email}")
+        self.log_event("Employee Deleted", f"Deleted employee: {email}", self.CURRENT_APP_USER)
 
     def update_employee(self, email, fname, lname, role, company, status):
         self.cursor.execute("""
             UPDATE employees SET fname=?, lname=?, role=?, company=?, status=? WHERE email=?
         """, (fname, lname, role, company, status, email))
         self.conn.commit()
-        self.log_event("Employee Updated", f"Updated employee: {email}")
+        self.log_event("Employee Updated", f"Updated employee: {email}", self.CURRENT_APP_USER)
 
     def term_employee(self, email):
         self.cursor.execute("UPDATE employees SET termed='Yes' WHERE email=?", (email,))
         self.conn.commit()
-        self.log_event("Employee Termed", f"Termed employee: {email}")
+        self.log_event("Employee Termed", f"Termed employee: {email}", self.CURRENT_APP_USER)
 
     def __del__(self):
         self.conn.close()
