@@ -5,6 +5,7 @@ import customtkinter as ctk
 import getpass
 import firebase_admin
 from firebase_admin import credentials, firestore
+import tkinter as tk
 from tkinter import ttk, messagebox
 from tkinter import filedialog
 
@@ -19,7 +20,7 @@ def get_service_key():
             if saved_path and os.path.exists(saved_path):
                 return saved_path
     # Create hidden root window
-    root = ttk.Tk()
+    root = tk.Tk()
     root.withdraw()
     print("Please select your Firebase Service Key...")
 
