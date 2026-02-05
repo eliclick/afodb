@@ -1,8 +1,52 @@
 #!/usr/bin/env python3
+import os
+import json
 import customtkinter as ctk
 import getpass
+import firebase_admin
+from firebase_admin import credentials, firestore
 from tkinter import ttk, messagebox
-from database import Database
+from tkinter import filedialog
+
+CONFIG_FILE = "config.json"
+
+def get_service_key():
+    if os.path.exists(CONFIG_FILE):
+        with open(CONFIG_FILE, "r") as f:
+            config = json.load(f)
+            saved_path = config.get("key_path")
+
+            if saved_path and os.path.exists(saved_path):
+                return saved_path
+    # Create hidden root window
+    root = ttk.Tk()
+    root.withdraw()
+    print("Please select your Firebase Service Key...")
+
+    selected_path = filedialog.askopenfilename(
+        title="Select Firebase Service Key",
+        filetypes=[("JSON files", "*.json")]
+    )
+
+    if selected_path:
+        with open(CONFIG_FILE, "w") as f:
+            json.dump({"key_path": selected_path}, f)
+        return selected_path
+    
+    return None
+
+key_path = get_service_key()
+
+if key_path:
+    try:
+        cred = credentials.Certificate(key_path)
+        firebase_admin.initialize_app(cred)
+        db = firestore.client()
+        print(f"Connected to Firebase using: {key_path}")
+    except Exception as e:
+        print(f"Failed to initialize Firebase: {e}")
+else:
+    print("Error: A service key is required to run the Employee Database.")
 
 # Set theme
 ctk.set_appearance_mode("System")
@@ -64,15 +108,25 @@ class EmployeeTable(ctk.CTkFrame):
             self.tree.delete(item)
 
         if data is None:
-            employees = self.db.fetch_employees()
+            employees = self.db.collection('employees').stream()
         else:
             employees = data
 
-        for emp in employees:
-            tags = ()
-            if len(emp) > 6 and emp[6] == "Yes":
-                tags = ("termed",)
-            self.tree.insert("", "end", values=emp, tags=tags)
+        for emp_doc in employees:
+            emp = emp_doc.to_dict()
+            
+            values = (
+                emp.get('email', ''),
+                emp.get('fname', ''),
+                emp.get('lname', ''),
+                emp.get('role', ''),
+                emp.get('company', ''),
+                emp.get('status', ''),
+                emp.get('termned', 'No'),
+            )
+
+            tags = ("termed",) if emp.get('termed') == "Yes" else()
+            self.tree.insert("", "end", values=values, tags=tags)
 
     def get_selected_email(self):
         selected_item = self.tree.selection()
@@ -116,12 +170,22 @@ class ViewEmployeesView(ctk.CTkFrame):
         self.perform_search()
 
     def perform_search(self):
-        query = self.entry_search.get()
-        if query:
-            results = self.db.search_employees(query)
-            self.table_frame.load_data(results)
-        else:
-            self.table_frame.load_data() # Reload all if empty
+        query = self.entry_search.get().lower()
+        all_docs = self.db.collection('employees').stream()
+        results = []
+
+        for doc in all_docs:
+            emp = doc.to_dict()
+            search_string = f"{emp.get('fname', '')} {emp.get('lname', '')} {emp.get('email', '')}".lower()
+            if query in search_string:
+                results.append(doc)
+        
+        self.table_frame.load_data(results)
+        # if query:
+        #     results = self.db.search_employees(query)
+        #     self.table_frame.load_data(results)
+        # else:
+        #     self.table_frame.load_data() # Reload all if empty
 
 class MainMenu(ctk.CTkFrame):
     def __init__(self, master, open_view_employees_callback, open_add_user_callback, open_term_user_callback, open_history_callback):
@@ -215,8 +279,22 @@ class HistoryView(ctk.CTkFrame):
         for item in self.tree.get_children():
             self.tree.delete(item)
 
-        history = self.db.fetch_history()
-        for record in history:
+        # Order by timestamp descending
+        history_query = self.db.collection('history').order_by('timestamp', direction=firestore.Query.DESCENDING).stream()
+        
+        for doc in history_query:
+            h = doc.to_dict()
+            # Format timestamp for display
+            ts = h.get('timestamp')
+            ts_display = ts.strftime("%Y-%m-%d %H:%M") if ts else "N/A"
+            
+            record = (
+                doc.id[:6], # Shortened ID
+                ts_display,
+                h.get('action', ''),
+                h.get('details', ''),
+                h.get('editor', '')
+            )
             self.tree.insert("", "end", values=record)
 
 class EmployeeView(ctk.CTkFrame):
@@ -283,6 +361,7 @@ class EmployeeView(ctk.CTkFrame):
         self.btn_clear = ctk.CTkButton(self.form_frame, text="Clear", command=self.clear_form, fg_color="gray")
         self.btn_clear.pack(pady=5, padx=20, fill="x")
 
+
     def add_employee(self):
         email = self.entry_email.get()
         fname = self.entry_fname.get()
@@ -295,12 +374,52 @@ class EmployeeView(ctk.CTkFrame):
             messagebox.showerror("Error", "All fields are required!")
             return
 
-        if self.db.insert_employee(email, fname, lname, role, company, status):
-            messagebox.showinfo("Success", "Employee added successfully!")
-            self.clear_form()
-            self.table_frame.load_data()
-        else:
+        doc_ref = self.db.collection('employees').document(email)
+        
+        if doc_ref.get().exists:
             messagebox.showerror("Error", "Email already exists!")
+            return
+
+        # Create Employee Document
+        doc_ref.set({
+            'email': email,
+            'fname': fname,
+            'lname': lname,
+            'role': role,
+            'company': company,
+            'status': status,
+            'termed': 'No'
+        })
+
+        # Log to History
+        self.db.collection('history').add({
+            'action': 'Added Employee',
+            'details': f'Added {fname} {lname}',
+            'editor': CURRENT_APP_USER,
+            'timestamp': firestore.SERVER_TIMESTAMP
+        })
+
+        messagebox.showinfo("Success", "Employee added successfully!")
+        self.clear_form()
+        self.table_frame.load_data()
+    # def add_employee(self):
+    #     email = self.entry_email.get()
+    #     fname = self.entry_fname.get()
+    #     lname = self.entry_lname.get()
+    #     role = self.entry_role.get()
+    #     company = self.combo_company.get()
+    #     status = self.combo_status.get()
+
+    #     if not (email and fname and lname and role and company != "Company" and status != "Status"):
+    #         messagebox.showerror("Error", "All fields are required!")
+    #         return
+
+    #     if self.db.insert_employee(email, fname, lname, role, company, status):
+    #         messagebox.showinfo("Success", "Employee added successfully!")
+    #         self.clear_form()
+    #         self.table_frame.load_data()
+    #     else:
+    #         messagebox.showerror("Error", "Email already exists!")
 
     def clear_form(self):
         self.entry_email.delete(0, 'end')
@@ -340,16 +459,36 @@ class TermUserView(ctk.CTkFrame):
             messagebox.showerror("Error", "Please select a user to term.")
             return
 
-        self.db.term_employee(email)
+        # Update the specific document
+        doc_ref = self.db.collection('employees').document(email)
+        doc_ref.update({'termed': 'Yes', 'status': 'Inactive'})
+
+        # Log the termination
+        self.db.collection('history').add({
+            'action': 'Termed User',
+            'details': f'Terminated access for {email}',
+            'editor': CURRENT_APP_USER,
+            'timestamp': firestore.SERVER_TIMESTAMP
+        })
+
         messagebox.showinfo("Success", f"User {email} has been termed.")
         self.table_frame.load_data()
+    # def term_user(self):
+    #     email = self.table_frame.get_selected_email()
+    #     if not email:
+    #         messagebox.showerror("Error", "Please select a user to term.")
+    #         return
+
+    #     self.db.term_employee(email)
+    #     messagebox.showinfo("Success", f"User {email} has been termed.")
+    #     self.table_frame.load_data()
 
 class App(ctk.CTk):
-    def __init__(self):
+    def __init__(self, db):
         super().__init__()
         self.title("Employee Management System")
         self.geometry("1200x600")
-        self.db = Database()
+        self.db = db
         # self.user_id = os.getlogin()
 
         self.current_frame = None
@@ -378,5 +517,5 @@ class App(ctk.CTk):
         self.switch_frame(HistoryView, db=self.db, back_callback=self.show_main_menu)
 
 if __name__ == "__main__":
-    app = App()
+    app = App(db)
     app.mainloop()
